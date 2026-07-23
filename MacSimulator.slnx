@@ -1,7 +1,0 @@
-<Solution>
-  <Configurations>
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
-  <Project Path="MacSimulator/MacSimulator.vcxproj" Id="3b25c384-a849-4e61-a3fa-9be05edf169f" />
-</Solution>
