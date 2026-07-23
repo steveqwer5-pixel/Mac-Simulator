@@ -1,6 +1,6 @@
 # Language
 - [Chinese](https://github.com/steveqwer5-pixel/Mac-Simulator/blob/main/README_zh.md)
-- [English](https://github.com/steveqwer5-pixel/Mac-Simulator/blob/main/README_en.md)
+- [English](https://github.com/steveqwer5-pixel/Mac-Simulator/blob/main/README.md)
 - [Português](https://github.com/steveqwer5-pixel/Mac-Simulator/blob/main/README_po.md)
 # Mac Simulator
 - Um projeto projetado para recriar a interface e as funcionalidades do macOS
