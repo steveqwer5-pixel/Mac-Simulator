@@ -1,3 +1,6 @@
+# 语言选择
+- [中文](https://github.com/steveqwer5-pixel/Mac-Simulator/blob/main/README_zh.md)
+- [英文](https://github.com/steveqwer5-pixel/Mac-Simulator/blob/main/README_en.md)
 # Mac Simulator
 - 一个还原MacOS界面和功能的项目
 - Dock Finder用steam里的Dockfinder就可以了
