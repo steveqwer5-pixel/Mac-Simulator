@@ -12,5 +12,6 @@
 - Island
 - ......
 # Promotional image
-<img width="535" height="636" alt="spotlight_en" src="https://github.com/user-attachments/assets/413bcb10-4226-4b74-b0b1-fb038bcf91ba" />
+<img width="532" height="632" alt="spotlight_en" src="https://github.com/user-attachments/assets/df1e037f-427e-4758-91ae-c9cc7c8025e3" />
+
 
