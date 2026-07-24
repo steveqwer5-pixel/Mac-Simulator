@@ -1,4 +1,4 @@
-﻿#ifndef _WIN32_WINNT
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0601
 #endif
 
@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <sstream>
 #include <cctype>
+#include <fstream>
+#include <map>
 
 #pragma comment(lib, "gdiplus.lib")
 #pragma comment(lib, "comctl32.lib")
@@ -38,7 +40,121 @@ constexpr int ITEM_HEIGHT = 52;
 constexpr int CORNER_RADIUS = 20;
 constexpr int MARGIN_TOP = 20;
 
-// ==================== 2. 全局状态变量 ====================
+// ==================== 2. 多语言 (i18n) 字典系统 ====================
+struct LanguageStrings {
+    std::wstring placeholder;
+    std::wstring calcResultSubtitle;
+    std::wstring appCategory;
+    std::wstring webSearchCategory;
+    std::wstring searchInPrefix;
+    std::wstring searchInSuffix;
+};
+
+static std::map<std::wstring, LanguageStrings> g_i18n = {
+    { L"zh_cn", {
+        L"Spotlight 搜索...",
+        L"计算器结果 • 按 Enter 复制结果",
+        L"应用程序",
+        L"快捷网页搜索",
+        L"在 ",
+        L" 搜 \""
+    }},
+    { L"pt_pt", {
+        L"Pesquisa Spotlight...",
+        L"Resultado da calculadora • Pressione Enter para copiar",
+        L"Aplicação",
+        L"Pesquisa rápida na Web",
+        L"Pesquisar ",
+        L" por \""
+    }},
+    { L"en_us", {
+        L"Spotlight Search...",
+        L"Calculator result • Press Enter to copy",
+        L"Application",
+        L"Quick Web Search",
+        L"Search ",
+        L" for \""
+    }}
+};
+
+static std::wstring g_currentLang = L"zh_cn"; // 默认语言
+
+// 获取当前语言字符串结构
+static const LanguageStrings& GetLangStrings() {
+    auto it = g_i18n.find(g_currentLang);
+    if (it != g_i18n.end()) {
+        return it->second;
+    }
+    return g_i18n[L"zh_cn"]; // 降级默认中文
+}
+
+// ==================== 3. 配置文件 (config.yaml) 读写逻辑 ====================
+static std::wstring GetModuleFolderPath() {
+    wchar_t path[MAX_PATH] = { 0 };
+    GetModuleFileNameW(NULL, path, MAX_PATH);
+    std::wstring strPath(path);
+    size_t pos = strPath.find_last_of(L"\\/");
+    return (pos != std::wstring::npos) ? strPath.substr(0, pos) : L"";
+}
+
+static void LoadOrGenerateConfig() {
+    std::wstring configPath = GetModuleFolderPath() + L"\\config.yaml";
+
+    // 检查文件是否存在
+    DWORD dwAttrib = GetFileAttributesW(configPath.c_str());
+    bool exists = (dwAttrib != INVALID_FILE_ATTRIBUTES && !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+
+    if (!exists) {
+        // 创建默认配置文件
+        std::ofstream outFile(configPath, std::ios::out | std::ios::binary);
+        if (outFile.is_open()) {
+            std::string defaultConfig =
+                "# Choose a language: \"zh_cn\", \"pt_pt\", \"en_us\"\r\n"
+                "Language: \"zh_cn\"\r\n";
+            outFile.write(defaultConfig.c_str(), defaultConfig.size());
+            outFile.close();
+        }
+        g_currentLang = L"zh_cn";
+        return;
+    }
+
+    // 读取已有的 YAML 文件
+    std::ifstream inFile(configPath);
+    if (inFile.is_open()) {
+        std::string line;
+        while (std::getline(inFile, line)) {
+            // 清理空白符
+            line.erase(0, line.find_first_not_of(" \t\r\n"));
+            line.erase(line.find_last_not_of(" \t\r\n") + 1);
+
+            // 忽略注释
+            if (line.empty() || line[0] == '#') continue;
+
+            if (line.find("Language:") == 0 || line.find("Language :") == 0) {
+                size_t colonPos = line.find(':');
+                if (colonPos != std::string::npos) {
+                    std::string val = line.substr(colonPos + 1);
+                    // 过滤引号和空格
+                    std::string cleanVal;
+                    for (char c : val) {
+                        if (c != ' ' && c != '\t' && c != '"' && c != '\'') {
+                            cleanVal.push_back(c);
+                        }
+                    }
+                    std::transform(cleanVal.begin(), cleanVal.end(), cleanVal.begin(), ::tolower);
+
+                    std::wstring wVal(cleanVal.begin(), cleanVal.end());
+                    if (g_i18n.find(wVal) != g_i18n.end()) {
+                        g_currentLang = wVal;
+                    }
+                }
+            }
+        }
+        inFile.close();
+    }
+}
+
+// ==================== 4. 全局状态变量 ====================
 static BYTE g_currentAlpha = 0;
 static BYTE g_targetAlpha = 0;
 
@@ -80,7 +196,7 @@ static std::vector<AppInfo> g_installedApps;
 static std::vector<SearchResult> g_results;
 static int g_selectedIndex = 0;
 
-// ==================== 3. 前向声明与逻辑函数 ====================
+// ==================== 5. 前向声明与逻辑函数 ====================
 static void RenderLayeredWindow(HWND hwnd);
 static void HideSpotlight(HWND hwnd);
 static void SwitchToNextEngine();
@@ -174,6 +290,8 @@ static void AddRoundedRectToPath(GraphicsPath& path, float x, float y, float wid
 
 static void UpdateSearchResults() {
     g_results.clear();
+    const auto& lang = GetLangStrings();
+
     if (g_inputText.empty()) {
         g_selectedIndex = 0;
         g_targetHeight = static_cast<float>(HEADER_HEIGHT);
@@ -185,7 +303,7 @@ static void UpdateSearchResults() {
     if (TryEvaluateMath(g_inputText, mathRes)) {
         wchar_t buf[128] = { 0 };
         swprintf_s(buf, L"= %g", mathRes);
-        g_results.push_back({ ResultType::Calculator, buf, L"计算器结果 • 按 Enter 复制结果", std::to_wstring(mathRes) });
+        g_results.push_back({ ResultType::Calculator, buf, lang.calcResultSubtitle, std::to_wstring(mathRes) });
     }
 
     std::wstring lowerInput = g_inputText;
@@ -195,13 +313,13 @@ static void UpdateSearchResults() {
         std::wstring lowerName = app.name;
         std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
         if (lowerName.find(lowerInput) != std::wstring::npos) {
-            g_results.push_back({ ResultType::App, app.name, L"应用程序", app.path });
+            g_results.push_back({ ResultType::App, app.name, lang.appCategory, app.path });
             if (g_results.size() >= 5) break;
         }
     }
 
-    std::wstring webTitle = L"在 " + g_engines[g_currentEngineIndex].name + L" 搜 \"" + g_inputText + L"\"";
-    g_results.push_back({ ResultType::WebSearch, webTitle, L"快捷网页搜索", g_inputText });
+    std::wstring webTitle = lang.searchInPrefix + g_engines[g_currentEngineIndex].name + lang.searchInSuffix + g_inputText + L"\"";
+    g_results.push_back({ ResultType::WebSearch, webTitle, lang.webSearchCategory, g_inputText });
 
     g_selectedIndex = 0;
     int resultCount = static_cast<int>(g_results.size());
@@ -209,7 +327,7 @@ static void UpdateSearchResults() {
     if (hMainWnd) SetTimer(hMainWnd, TIMER_ANIM_ID, 16, NULL);
 }
 
-// ==================== 4. 渲染界面 ====================
+// ==================== 6. 渲染界面 ====================
 static void RenderLayeredWindow(HWND hwnd) {
     int renderHeight = static_cast<int>(g_currentHeight);
     if (renderHeight < HEADER_HEIGHT) renderHeight = HEADER_HEIGHT;
@@ -328,7 +446,7 @@ static void RenderLayeredWindow(HWND hwnd) {
         }
         else {
             SolidBrush placeholderBrush(Color(90, 150, 155, 170));
-            graphics.DrawString(L"Spotlight 搜索...", -1, &inputFont, PointF(64.0f, 20.0f), &placeholderBrush);
+            graphics.DrawString(GetLangStrings().placeholder.c_str(), -1, &inputFont, PointF(64.0f, 20.0f), &placeholderBrush);
         }
 
         // 光标
@@ -417,7 +535,7 @@ static void RenderLayeredWindow(HWND hwnd) {
     ReleaseDC(NULL, hdcScreen);
 }
 
-// ==================== 5. 事件回调与入口 ====================
+// ==================== 7. 事件回调与入口 ====================
 static void SwitchToNextEngine() {
     g_currentEngineIndex = (g_currentEngineIndex + 1) % g_engines.size();
     UpdateSearchResults();
@@ -644,6 +762,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
     UNREFERENCED_PARAMETER(nCmdShow);
+
+    // 1. 初始化读取/生成配置文件
+    LoadOrGenerateConfig();
 
     INITCOMMONCONTROLSEX icce = { sizeof(INITCOMMONCONTROLSEX), ICC_STANDARD_CLASSES };
     InitCommonControlsEx(&icce);
