@@ -11,3 +11,5 @@
 - Spotlight
 - Island
 - ......
+# Imagem promocional
+<img width="532" height="632" alt="spotlight_pt" src="https://github.com/user-attachments/assets/d07610fb-d02f-428b-a584-946f47f943d8" />
