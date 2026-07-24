@@ -12,4 +12,4 @@
 - Island
 - ......
 # Imagem promocional
-<img width="532" height="632" alt="spotlight_pt" src="https://github.com/user-attachments/assets/d07610fb-d02f-428b-a584-946f47f943d8" />
+<img width="535" height="636" alt="spotlight_pt (2)" src="https://github.com/user-attachments/assets/02cf4ca1-3189-46c9-b1c6-8640fe6dccc0" />
